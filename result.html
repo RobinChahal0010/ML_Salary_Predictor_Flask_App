@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Salary Prediction Result</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/aos@2.3.1/dist/aos.css"/>
+    <style>
+        body {
+            background: #f8f9fa;
+            font-family: "Segoe UI", Arial, sans-serif;
+        }
+        .container {
+            margin-top: 50px;
+        }
+        .card {
+            background: linear-gradient(135deg, #eccaff, #e2c6ff, #d8c2ff, #cebeff, #c4baff);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.2);
+            border-radius: 18px;
+            margin-bottom: 80px;
+            padding: 25px;
+        }
+        h2, h5 {
+            font-weight: 600;
+            color: #2d1847;
+        }
+        .score {
+            font-size: 2.4rem;
+            font-weight: bold;
+            color: #3a9d23;
+        }
+        .btn-gradient {
+            border: none;
+            border-radius: 30px;
+            padding: 12px 24px;
+            font-weight: 600;
+            color: white;
+            transition: all 0.3s ease;
+        }
+        .btn-gradient:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+        }
+        .btn-purple {
+            background: linear-gradient(135deg, #7b2ff7, #f107a3);
+        }
+        .btn-orange {
+            background: linear-gradient(135deg, #ff7e5f, #feb47b);
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card p-4" data-aos="fade-up">
+
+        <h2 class="text-center" data-aos="zoom-in">💼 Salary Prediction Result</h2>
+        <hr>
+
+        <!-- Currency Converter -->
+        <div class="mb-3" data-aos="fade-right">
+            <label for="currency" class="form-label">🌍 Convert Salary To:</label>
+            <select id="currency" class="form-select" onchange="convertCurrency()">
+                <option value="USD" selected>USD - US Dollar</option>
+                <option value="INR">INR - Indian Rupee</option>
+                <option value="EUR">EUR - Euro</option>
+                <option value="GBP">GBP - British Pound</option>
+                <option value="CAD">CAD - Canadian Dollar</option>
+            </select>
+        </div>
+
+        <!-- Salary Info -->
+        <h5 data-aos="fade-left">💰 Predicted Salary:</h5>
+        <p id="salaryDisplay" class="score text-center" data-aos="zoom-in">$0</p>
+
+        <!-- Role Comparison -->
+        <h5 data-aos="fade-right">📊 Salary by Different Roles:</h5>
+        <div id="roleGraph" style="width:100%; height:400px;" data-aos="fade-up"></div>
+        <script>
+            var roles = {{ roles | tojson }};
+            var role_predictions = {{ role_predictions | tojson }};
+            var data1 = [{
+                x: roles,
+                y: role_predictions,
+                type: 'bar',
+                marker: {color: '#4a148c'}
+            }];
+            var layout1 = {
+                title: 'Salary Comparison Across Roles',
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: {color: '#2d1847'},
+                autosize: true
+            };
+            Plotly.newPlot('roleGraph', data1, layout1, {responsive: true});
+        </script>
+
+        <!-- Experience vs Salary -->
+        <h5 data-aos="fade-left">📈 Experience vs Salary:</h5>
+        <div id="expGraph" style="width:100%; height:400px;" data-aos="fade-up"></div>
+        <script>
+            var exp_levels = {{ experience_levels | tojson }};
+            var salary_vs_exp = {{ salary_vs_experience | tojson }};
+            var data2 = [{
+                x: exp_levels,
+                y: salary_vs_exp,
+                type: 'scatter',
+                mode: 'lines+markers',
+                line: {color: '#ff7043', width: 3}
+            }];
+            var layout2 = {
+                title: 'What-if: Experience Impact on Salary',
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: {color: '#2d1847'},
+                autosize: true
+            };
+            Plotly.newPlot('expGraph', data2, layout2, {responsive: true});
+        </script>
+
+        <!-- PDF Download + Back -->
+        <div class="text-center mt-4">
+            <a href="/{{ pdf_report }}" class="btn btn-gradient btn-purple" target="_blank">📄 Download PDF Report</a>
+            <a href="/" class="btn btn-gradient btn-orange">🔙 Back to Form</a>
+        </div>
+
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+<script>
+    AOS.init();
+
+    // Currency conversion rates
+    const rates = {
+        "USD": 1,
+        "INR": 83,
+        "EUR": 0.92,
+        "GBP": 0.78,
+        "CAD": 1.35
+    };
+
+    const baseSalary = {{ salary }};  // Flask injects original USD salary
+
+    // Animate counter function
+    function animateValue(id, start, end, duration, currency="USD") {
+        const obj = document.getElementById(id);
+        let startTimestamp = null;
+        const step = (timestamp) => {
+            if (!startTimestamp) startTimestamp = timestamp;
+            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+            const value = Math.floor(progress * (end - start) + start);
+            obj.textContent = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).format(value);
+            if (progress < 1) {
+                window.requestAnimationFrame(step);
+            }
+        };
+        window.requestAnimationFrame(step);
+    }
+
+    // Run first animation
+    animateValue("salaryDisplay", 0, baseSalary, 2000, "USD");
+
+    // On currency change
+    function convertCurrency() {
+        const currency = document.getElementById("currency").value;
+        const converted = baseSalary * rates[currency];
+        animateValue("salaryDisplay", 0, converted, 2000, currency);
+    }
+</script>
+</body>
+</html>
