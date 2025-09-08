@@ -1,10 +1,11 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 import joblib
 import pandas as pd
 import os
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from datetime import datetime
+import json
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
@@ -36,6 +37,7 @@ def predict():
     company_size = request.form.get("company_size", "M")
     remote_ratio = int(request.form.get("remote_ratio", 0) or 0)
     company_location = request.form.get("company_location", location)
+    current_salary = float(request.form.get("current_salary") or 0)
 
     # Build input dataframe (matching dataset structure)
     input_data = pd.DataFrame([{
@@ -58,6 +60,17 @@ def predict():
 
     # ---------- PREDICTION ----------
     salary = round(model.predict(input_data)[0], 2)
+
+    # ---------- Salary Comparison & Recommendation ----------
+    if current_salary > 0:
+        if current_salary < salary * 0.9:
+            recommendation = "Your salary is below market. Consider negotiating or exploring new roles."
+        elif current_salary > salary * 1.1:
+            recommendation = "Your salary is above market average. Keep up the good work!"
+        else:
+            recommendation = "Your salary is aligned with market average."
+    else:
+        recommendation = "No current salary provided."
 
     # ---------- Dynamic Salary by Role ----------
     roles = ["Data Analyst", "Data Scientist", "Software Engineer", "ML Engineer"]
@@ -93,31 +106,55 @@ def predict():
     c.drawString(50, height - 160, f"Company Size: {company_size}")
     c.drawString(50, height - 180, f"Remote Ratio: {remote_ratio}")
     c.drawString(50, height - 200, f"Predicted Salary: ${salary}")
+    c.drawString(50, height - 220, f"Current Salary: ${current_salary}")
+    c.drawString(50, height - 240, f"Recommendation: {recommendation}")
 
-    
+    # Feature importances
     try:
         importances = model.feature_importances_
         features = model.feature_names_in_
         top_idx = importances.argsort()[-3:][::-1]
-        c.drawString(50, height - 230, "Top 3 Factors Affecting Salary:")
+        c.drawString(50, height - 270, "Top 3 Factors Affecting Salary:")
         for i, idx in enumerate(top_idx):
-            c.drawString(60, height - 250 - i * 20,
+            c.drawString(60, height - 290 - i * 20,
                          f"{i+1}. {features[idx]} ({importances[idx]*100:.1f}%)")
     except Exception:
         pass
 
     c.save()
 
-    
     return render_template(
         "result.html",
         salary=salary,
+        current_salary=current_salary,
+        recommendation=recommendation,
         roles=roles,
         role_predictions=role_predictions,
         experience_levels=experience_levels,
         salary_vs_experience=salary_vs_experience,
         pdf_report=pdf_path
     )
+# ---------------- Load FAQ ----------------
+with open("faq.json", "r") as f:
+    faq_data = json.load(f)["questions"]
+
+def get_answer(user_question):
+    user_question = user_question.lower()
+    for item in faq_data:
+        if user_question in item["q"].lower():
+            return item["a"]
+    return "Sorry, I don't know the answer to that yet."
+
+# ---------------- Chatbot Route ----------------
+@app.route("/chatbot")
+def chatbot():
+    return render_template("chatbot.html")
+
+@app.route("/ask", methods=["POST"])
+def ask():
+    user_question = request.form.get("question", "")
+    answer = get_answer(user_question)
+    return jsonify({"answer": answer})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=5001)

@@ -1,0 +1,5 @@
+{
+    "git.autorefresh": false,
+    "git.autoRepositoryDetection": false,
+    "git.blame.statusBarItem.enabled": false
+}

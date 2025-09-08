@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Salary Chatbot</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.4/css/bulma.min.css">
+<style>
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #f3f3f3;
+    padding: 2rem;
+}
+.chat-container {
+    max-width: 600px;
+    margin: auto;
+    background: #fff;
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.chat-box {
+    height: 350px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    background: #fafafa;
+    display: flex;
+    flex-direction: column;
+}
+.message {
+    margin: 0.6rem 0;
+    line-height: 1.4;
+    padding: 0.6rem 1rem;
+    border-radius: 12px;
+    display: inline-block;
+    max-width: 80%;
+    animation: fadeIn 0.3s ease-in;
+}
+.user {
+    background: #e6f0ff;
+    color: #0074D9;
+    font-weight: 500;
+    align-self: flex-end;
+    text-align: right;
+}
+.bot {
+    background: #eafaf1;
+    color: #2E8B57;
+    font-weight: 500;
+    align-self: flex-start;
+    text-align: left;
+}
+/* Typing indicator */
+.typing {
+    font-style: italic;
+    color: #888;
+    align-self: flex-start;
+    margin: 0.4rem 0;
+    animation: blink 1s infinite;
+}
+@keyframes blink {
+    0% { opacity: 0.2; }
+    50% { opacity: 1; }
+    100% { opacity: 0.2; }
+}
+/* Smooth animation */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+/* Scrollbar styling */
+.chat-box::-webkit-scrollbar {
+    width: 6px;
+}
+.chat-box::-webkit-scrollbar-thumb {
+    background: #bbb;
+    border-radius: 6px;
+}
+</style>
+</head>
+<body>
+
+<div class="chat-container">
+  <h2 class="title is-4 has-text-centered">💬 Salary FAQ Chatbot</h2>
+  <div id="chat-box" class="chat-box"></div>
+  <form id="chat-form">
+    <div class="field has-addons">
+      <div class="control is-expanded">
+        <input class="input" type="text" id="question" placeholder="Ask a question...">
+      </div>
+      <div class="control">
+        <button class="button is-link">Send</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<script>
+const form = document.getElementById("chat-form");
+const chatBox = document.getElementById("chat-box");
+
+form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const questionInput = document.getElementById("question");
+    const userText = questionInput.value.trim();
+    if(!userText) return;
+    
+    // show user message
+    chatBox.innerHTML += `<div class="message user">You: ${userText}</div>`;
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    // show typing indicator
+    const typingDiv = document.createElement("div");
+    typingDiv.className = "typing";
+    typingDiv.innerText = "Bot is typing...";
+    chatBox.appendChild(typingDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    try {
+        const resp = await fetch("/ask", {
+            method: "POST",
+            headers: {"Content-Type": "application/x-www-form-urlencoded"},
+            body: `question=${encodeURIComponent(userText)}`
+        });
+        const data = await resp.json();
+
+        // remove typing indicator
+        typingDiv.remove();
+
+        // show bot message
+        chatBox.innerHTML += `<div class="message bot">Bot: ${data.answer}</div>`;
+    } catch (err) {
+        typingDiv.remove();
+        chatBox.innerHTML += `<div class="message bot">Bot: Sorry, something went wrong.</div>`;
+    }
+    
+    chatBox.scrollTop = chatBox.scrollHeight;
+    questionInput.value = "";
+});
+</script>
+
+</body>
+</html>
